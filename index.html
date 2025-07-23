@@ -7,26 +7,25 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard/dist/web/static/pretendard.css">
 <style>
   html, body {
-    margin: 0;
-    padding: 0;
-    background: #F5F5F5;
-    font-family: 'Pretendard', sans-serif;
-    overflow: hidden;
-    border-radius: 20px;
-  }
-  #pomodoro-app {
-    max-width: 400px;
-    width: 100%;
-    margin: 0 auto;
-    text-align: center;
-    background: #F5F5F5;
-    padding: 10px;
-    border-radius: 20px;
-  }
-  canvas {
-    max-width: 90%;
-    height: auto;
-  }
+  margin: 0;
+  padding: 0;
+  background: transparent; /* ✅ 투명 배경 */
+  font-family: 'Pretendard', sans-serif;
+  overflow: hidden;
+}
+#pomodoro-app {
+  max-width: 400px;
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  background: #F5F5F5; /* ✅ 앱 자체 배경색 유지 */
+  padding: 10px;
+  border-radius: 20px; /* ✅ 둥근 모서리 */
+}
+canvas {
+  max-width: 90%;
+  height: auto;
+}
 </style>
 </head>
 <body>
