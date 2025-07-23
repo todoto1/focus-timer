@@ -7,26 +7,26 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard/dist/web/static/pretendard.css">
 <style>
   html, body {
-  margin: 0;
-  padding: 0;
-  background: transparent; /* ✅ 투명 배경 */
-  font-family: 'Pretendard', sans-serif;
-  overflow: hidden;
-}
-#pomodoro-app {
-  max-width: 400px;
-  width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  background: #F5F5F5; /* ✅ 앱 자체 배경색 유지 */
-  padding: 20px;
-  border-radius: 20px; /* ✅ 둥근 모서리 */
-  box-sizing: border-box;
-}
-canvas {
-  max-width: 90%;
-  height: auto;
-}
+    margin: 0;
+    padding: 0;
+    background: transparent; /* ✅ 투명 배경 */
+    font-family: 'Pretendard', sans-serif;
+    overflow: hidden;
+  }
+  #pomodoro-app {
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    background: #F5F5F5; /* ✅ 앱 자체 배경 */
+    padding: 20px;
+    border-radius: 20px; /* ✅ 둥근 모서리 */
+    box-sizing: border-box;
+  }
+  canvas {
+    max-width: 90%;
+    height: auto;
+  }
 </style>
 </head>
 <body>
@@ -56,7 +56,6 @@ canvas {
 </div>
 
 <script>
-/* ✅ 주간 통계 + 타이머 코드 */
 const canvas = document.getElementById("timerCanvas");
 const ctx = canvas.getContext("2d");
 const timeDisplay = document.getElementById("time");
@@ -89,6 +88,7 @@ let isDragging = false;
 sessionsDisplay.textContent = sessionCount;
 totalTimeDisplay.textContent = totalMinutes;
 
+/* ✅ 타이머 UI */
 function drawTimer() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const radius = 110;
@@ -142,18 +142,40 @@ function updateTimeDisplay() {
   drawTimer();
 }
 
-canvas.addEventListener("mousedown", (e) => {
+/* ✅ 마우스 + 모바일 드래그 이벤트 */
+canvas.addEventListener("mousedown", (e) => startDrag(e));
+canvas.addEventListener("mousemove", (e) => onDrag(e));
+canvas.addEventListener("mouseup", () => endDrag());
+
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  startDrag(e.touches[0]);
+});
+canvas.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+  onDrag(e.touches[0]);
+});
+canvas.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  endDrag();
+});
+
+function startDrag(e) {
   if (!isRunning) {
     isDragging = true;
     adjustTime(e);
   }
-});
-canvas.addEventListener("mouseup", () => {
-  if (!isRunning) isDragging = false;
-});
-canvas.addEventListener("mousemove", (e) => {
-  if (!isRunning && isDragging) adjustTime(e);
-});
+}
+function onDrag(e) {
+  if (!isRunning && isDragging) {
+    adjustTime(e);
+  }
+}
+function endDrag() {
+  if (!isRunning) {
+    isDragging = false;
+  }
+}
 
 function adjustTime(e) {
   const rect = canvas.getBoundingClientRect();
@@ -170,6 +192,7 @@ function adjustTime(e) {
   updateTimeDisplay();
 }
 
+/* ✅ 타이머 작동 */
 function startPauseTimer() {
   if (!isRunning) {
     timer = setInterval(() => {
@@ -207,6 +230,7 @@ function resetTimer() {
   updateTimeDisplay();
 }
 
+/* ✅ 주간 통계 */
 function updateWeeklyData() {
   const today = new Date().getDay();
   let weekly = JSON.parse(localStorage.getItem("weeklyData") || "[]");
