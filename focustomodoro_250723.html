@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro Timer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard/dist/web/static/pretendard.css">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #F5F5F5;
+    font-family: 'Pretendard', sans-serif;
+    overflow: hidden;
+  }
+  #pomodoro-app {
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    background: #F5F5F5;
+    padding: 10px;
+    border-radius: 12px;
+  }
+  canvas {
+    max-width: 90%;
+    height: auto;
+  }
+</style>
+</head>
+<body>
+<div id="pomodoro-app">
+  <h3 id="taskDisplay" contenteditable="true" 
+      style="font-size:18px; color:#000CFE; margin:5px 0; font-weight:500; outline:none; cursor:text;">
+      할 일을 입력해주세요
+  </h3>
+
+  <canvas id="timerCanvas" width="300" height="300" style="cursor:pointer;"></canvas>
+  <h3 id="mode" style="color:#000CFE; margin:10px 0; font-size:16px; font-weight:500;">포커스할 시간!</h3>
+  <h1 id="time" style="font-size:42px; color:#000CFE; margin:5px 0;">25:00</h1>
+  
+  <button id="startPause" style="padding:8px 16px; margin:5px; background:#000CFE; color:white; border:none; border-radius:6px; font-size:14px;">시작</button>
+  <button id="reset" style="padding:8px 16px; margin:5px; background:#E0E0E0; color:#000CFE; border:none; border-radius:6px; font-size:14px;">리셋</button>
+
+  <div style="display:flex; justify-content:space-around; margin-top:10px;">
+    <div style="background:#E3F2FD; padding:4px 8px; border-radius:6px; font-size:12px; color:#000CFE;">
+      오늘 달성: <span id="sessions">0</span> 세트
+    </div>
+    <div style="background:#E3F2FD; padding:4px 8px; border-radius:6px; font-size:12px; color:#000CFE;">
+      총 집중: <span id="totalTime">0</span> 분
+    </div>
+  </div>
+
+  <canvas id="weeklyChart" width="300" height="120" style="margin-top:15px;"></canvas>
+</div>
+
+<script>
+/* ✅ 주간 통계 + 타이머 코드 */
+const canvas = document.getElementById("timerCanvas");
+const ctx = canvas.getContext("2d");
+const timeDisplay = document.getElementById("time");
+const startPauseBtn = document.getElementById("startPause");
+const resetBtn = document.getElementById("reset");
+const sessionsDisplay = document.getElementById("sessions");
+const totalTimeDisplay = document.getElementById("totalTime");
+const weeklyCanvas = document.getElementById("weeklyChart");
+const wctx = weeklyCanvas.getContext("2d");
+
+const mainColor = "#000CFE";
+
+/* ✅ 매일 리셋 */
+const todayKey = new Date().toISOString().split("T")[0];
+let savedDate = localStorage.getItem("savedDate");
+if (savedDate !== todayKey) {
+  localStorage.setItem("sessions", "0");
+  localStorage.setItem("totalTime", "0");
+  localStorage.setItem("savedDate", todayKey);
+}
+
+let focusTime = 25 * 60;
+let currentTime = focusTime;
+let isRunning = false;
+let timer;
+let sessionCount = parseInt(localStorage.getItem("sessions") || "0");
+let totalMinutes = parseInt(localStorage.getItem("totalTime") || "0");
+let isDragging = false;
+
+sessionsDisplay.textContent = sessionCount;
+totalTimeDisplay.textContent = totalMinutes;
+
+function drawTimer() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const radius = 110;
+  const x = canvas.width / 2;
+  const y = canvas.height / 2;
+
+  for (let i = 0; i < 60; i++) {
+    const angle = (i / 60) * 2 * Math.PI - Math.PI / 2;
+    const inner = i % 5 === 0 ? radius - 10 : radius - 5;
+    const outer = radius;
+    ctx.beginPath();
+    ctx.moveTo(x + inner * Math.cos(angle), y + inner * Math.sin(angle));
+    ctx.lineTo(x + outer * Math.cos(angle), y + outer * Math.sin(angle));
+    ctx.strokeStyle = "#B0BEC5";
+    ctx.lineWidth = i % 5 === 0 ? 2 : 1;
+    ctx.stroke();
+
+    if (i % 5 === 0) {
+      ctx.fillStyle = mainColor;
+      ctx.font = "11px Pretendard, sans-serif";
+      const num = i === 0 ? "0" : i;
+      ctx.fillText(num, x + (radius + 14) * Math.cos(angle) - 5, y + (radius + 14) * Math.sin(angle) + 4);
+    }
+  }
+
+  if (isRunning) {
+    const progress = 1 - currentTime / focusTime;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(x, y, radius, -Math.PI / 2, (2 * Math.PI) * progress - Math.PI / 2);
+    ctx.lineTo(x, y);
+    ctx.fillStyle = mainColor;
+    ctx.fill();
+  }
+
+  if (!isRunning) {
+    const handleAngle = (focusTime / 60 / 60) * 2 * Math.PI - Math.PI / 2;
+    const hx = x + radius * Math.cos(handleAngle);
+    const hy = y + radius * Math.sin(handleAngle);
+    ctx.beginPath();
+    ctx.arc(hx, hy, 6, 0, 2 * Math.PI);
+    ctx.fillStyle = mainColor;
+    ctx.fill();
+  }
+}
+
+function updateTimeDisplay() {
+  const minutes = Math.floor(currentTime / 60);
+  const seconds = currentTime % 60;
+  timeDisplay.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  drawTimer();
+}
+
+canvas.addEventListener("mousedown", (e) => {
+  if (!isRunning) {
+    isDragging = true;
+    adjustTime(e);
+  }
+});
+canvas.addEventListener("mouseup", () => {
+  if (!isRunning) isDragging = false;
+});
+canvas.addEventListener("mousemove", (e) => {
+  if (!isRunning && isDragging) adjustTime(e);
+});
+
+function adjustTime(e) {
+  const rect = canvas.getBoundingClientRect();
+  const centerX = rect.left + canvas.width / 2;
+  const centerY = rect.top + canvas.height / 2;
+  let angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) + Math.PI / 2;
+  if (angle < 0) angle += 2 * Math.PI;
+  let percent = angle / (2 * Math.PI);
+  let minutes = Math.round(percent * 60);
+  if (minutes < 1) minutes = 1;
+  if (minutes > 60) minutes = 60;
+  focusTime = minutes * 60;
+  currentTime = focusTime;
+  updateTimeDisplay();
+}
+
+function startPauseTimer() {
+  if (!isRunning) {
+    timer = setInterval(() => {
+      currentTime--;
+      updateTimeDisplay();
+      if (currentTime <= 0) {
+        clearInterval(timer);
+        isRunning = false;
+        startPauseBtn.textContent = "시작";
+        sessionCount++;
+        totalMinutes += focusTime / 60;
+        localStorage.setItem("sessions", sessionCount);
+        localStorage.setItem("totalTime", totalMinutes);
+        sessionsDisplay.textContent = sessionCount;
+        totalTimeDisplay.textContent = totalMinutes;
+        updateWeeklyData();
+        currentTime = focusTime;
+        updateTimeDisplay();
+      }
+    }, 1000);
+    isRunning = true;
+    startPauseBtn.textContent = "일시정지";
+  } else {
+    clearInterval(timer);
+    isRunning = false;
+    startPauseBtn.textContent = "시작";
+  }
+}
+
+function resetTimer() {
+  clearInterval(timer);
+  isRunning = false;
+  startPauseBtn.textContent = "시작";
+  currentTime = focusTime;
+  updateTimeDisplay();
+}
+
+function updateWeeklyData() {
+  const today = new Date().getDay();
+  let weekly = JSON.parse(localStorage.getItem("weeklyData") || "[]");
+  if (weekly.length !== 7) weekly = [0, 0, 0, 0, 0, 0, 0];
+  weekly[today] += 1;
+  localStorage.setItem("weeklyData", JSON.stringify(weekly));
+  drawWeeklyChart();
+}
+
+function drawWeeklyChart() {
+  let weekly = JSON.parse(localStorage.getItem("weeklyData") || "[]");
+  if (weekly.length !== 7) weekly = [0, 0, 0, 0, 0, 0, 0];
+  wctx.clearRect(0, 0, weeklyCanvas.width, weeklyCanvas.height);
+  const barWidth = 20;
+  const gap = 18;
+  weekly.forEach((val, i) => {
+    const x = i * (barWidth + gap) + 20;
+    const barHeight = val * 12;
+    wctx.fillStyle = mainColor;
+    wctx.fillRect(x, weeklyCanvas.height - barHeight - 20, barWidth, barHeight);
+    wctx.fillStyle = mainColor;
+    wctx.font = "11px Pretendard, sans-serif";
+    wctx.fillText(["일", "월", "화", "수", "목", "금", "토"][i], x + 2, weeklyCanvas.height - 5);
+    if (val > 0) {
+      wctx.fillStyle = "#333";
+      wctx.font = "10px Pretendard, sans-serif";
+      wctx.fillText(val, x + 4, weeklyCanvas.height - barHeight - 25);
+    }
+  });
+}
+
+startPauseBtn.addEventListener("click", startPauseTimer);
+resetBtn.addEventListener("click", resetTimer);
+
+updateTimeDisplay();
+drawWeeklyChart();
+</script>
+</body>
+</html>
